@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { Box, LogOut, LayoutDashboard, PackageSearch, Settings, UserCircle } from 'lucide-react';
+import { Box, LogOut, LayoutDashboard, Settings, UserCircle, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 
 export default function DashboardLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, role } = useAuth();
@@ -37,15 +38,29 @@ export default function DashboardLayout() {
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden">
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col z-20">
-        <div className="h-20 flex items-center px-8 border-b border-slate-100">
+      <aside className={`fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 flex flex-col z-50 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-20 flex items-center justify-between px-8 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-xl">
                <Box className="w-7 h-7 text-primary" />
             </div>
             <span className="font-extrabold text-2xl text-slate-800 tracking-tight">Inventorium</span>
           </div>
+          <button 
+            className="p-2 -mr-3 rounded-xl text-slate-400 hover:bg-slate-100 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
         
         <div className="p-6 flex-1 flex flex-col">
@@ -67,6 +82,7 @@ export default function DashboardLayout() {
                  <Link 
                    key={link.name}
                    to={link.path} 
+                   onClick={() => setIsSidebarOpen(false)}
                    className={`flex items-center gap-3 px-4 py-3.5 rounded-xl font-semibold transition-all ${
                      isActive 
                        ? 'bg-primary text-white shadow-md shadow-primary/20' 
@@ -95,21 +111,29 @@ export default function DashboardLayout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#f8fafc]">
         {/* Top Header */}
-        <header className="h-20 flex items-center justify-between px-10 bg-white border-b border-slate-200 shadow-sm shadow-slate-100/50 z-10">
-          <h2 className="text-xl text-slate-800 font-bold tracking-tight">Overview</h2>
+        <header className="h-20 flex items-center justify-between px-6 md:px-10 bg-white border-b border-slate-200 shadow-sm shadow-slate-100/50 z-10 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <button 
+              className="p-2 -ml-2 rounded-xl text-slate-500 hover:bg-slate-100 md:hidden"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl text-slate-800 font-bold tracking-tight hidden sm:block">Overview</h2>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end mr-2">
                 <span className="text-sm font-bold text-slate-800">{user?.email || 'Loading...'}</span>
                 <span className="text-xs text-slate-500 font-medium">{roleInfo.label}</span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 text-sm overflow-hidden shadow-inner">
+            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 text-sm overflow-hidden shadow-inner flex-shrink-0">
               <UserCircle className="w-10 h-10 text-slate-400" />
             </div>
           </div>
         </header>
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 p-10 overflow-auto">
+        <div className="flex-1 p-4 md:p-10 overflow-auto">
           <div className="max-w-6xl mx-auto">
              <Outlet context={{ role, profile }} />
           </div>
