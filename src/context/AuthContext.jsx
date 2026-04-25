@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 const AuthContext = createContext();
-
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -14,71 +13,59 @@ export const AuthProvider = ({ children }) => {
 
   const fetchProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error) {
-        console.error('Error fetching profile:', error);
+      const docRef = doc(db, 'profiles', userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setProfile(docSnap.data());
       } else {
-        setProfile(data);
+        setProfile(null);
       }
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      console.error('fetchProfile error:', err);
     }
   };
 
   useEffect(() => {
-    // Cek status sesi login yang aktif di awal muat ulang
-    const checkSession = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('Supabase session error:', error);
-        }
-        const session = data?.session;
-        
-        setUser(session?.user || null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        }
-      } catch (err) {
-        console.error('Unexpected error checking session:', err);
-      } finally {
+    let mounted = true;
+
+    // Timeout paksa: kalau 5 detik belum selesai, stop loading saja
+    const timeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('Auth timeout — forcing loading to false');
         setLoading(false);
       }
-    };
+    }, 5000);
 
-    checkSession();
-
-    // Berlangganan perubahan status auth (login/logout kejadian)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user || null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!mounted) return;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        await fetchProfile(currentUser.uid);
       } else {
         setProfile(null);
       }
+      
+      clearTimeout(timeout);
       setLoading(false);
     });
 
     return () => {
-      subscription?.unsubscribe();
+      mounted = false;
+      clearTimeout(timeout);
+      unsubscribe();
     };
   }, []);
 
-  const value = {
-    user,
-    profile,
-    loading,
-    role: profile?.role || 'guest'
-  };
+  const value = { user, profile, loading, role: profile?.role || 'guest' };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {loading ? (
+        <div className="flex justify-center items-center h-screen bg-slate-50">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };

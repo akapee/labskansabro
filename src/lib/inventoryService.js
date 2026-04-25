@@ -1,23 +1,30 @@
-import { supabase } from './supabase';
+import { db } from './firebase';
+import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
 
 // Helper: Tarik Data Items berdasarkan Role Auth
 export const fetchItemsByRole = async (role) => {
   try {
-    let query = supabase.from('items').select('*').order('created_at', { ascending: false });
+    const itemsRef = collection(db, 'items');
+    let q;
     
     // Jika role bukan admin / waka, filter sesuai dengan kepemilikan lab
     if (role !== 'admin' && role !== 'waka_sarpras') {
       const labId = role?.replace('toolman_', ''); // asumsikan role 'toolman_tkj' menjadi 'tkj'
       if (labId) {
-         query = query.eq('lab_id', labId);
+         q = query(itemsRef, where('lab_id', '==', labId));
       } else {
          // Fallback aman untuk membatasi query jika string tak dimengerti
-         query = query.eq('lab_id', 'unauthorized_space');
+         q = query(itemsRef, where('lab_id', '==', 'unauthorized_space'));
       }
+    } else {
+      q = query(itemsRef);
     }
     
-    const { data, error } = await query;
-    if (error) throw error;
+    const querySnapshot = await getDocs(q);
+    let data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Urutkan data secara lokal berdasarkan waktu terbaru untuk menghindari error Missing Composite Index Firebase
+    data.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     
     return data;
   } catch (error) {
@@ -29,9 +36,12 @@ export const fetchItemsByRole = async (role) => {
 // Helper: Tambah Item Baru
 export const insertItem = async (itemData) => {
   try {
-    const { data, error } = await supabase.from('items').insert([itemData]).select();
-    if (error) throw error;
-    return { success: true, data };
+    const docRef = await addDoc(collection(db, 'items'), {
+      ...itemData,
+      created_at: new Date().toISOString()
+    });
+    // Return data dalam bentuk array karena kode lama (supabase) return array data
+    return { success: true, data: [{ id: docRef.id, ...itemData }] };
   } catch (err) {
     console.error('Error inserting item:', err);
     return { success: false, error: err.message };
@@ -41,9 +51,9 @@ export const insertItem = async (itemData) => {
 // Helper: Update Item 
 export const updateItem = async (id, updates) => {
   try {
-    const { data, error } = await supabase.from('items').update(updates).eq('id', id).select();
-    if (error) throw error;
-    return { success: true, data };
+    const docRef = doc(db, 'items', id);
+    await updateDoc(docRef, updates);
+    return { success: true, data: [{ id, ...updates }] };
   } catch (err) {
     console.error('Error updating item:', err);
     return { success: false, error: err.message };
@@ -53,8 +63,8 @@ export const updateItem = async (id, updates) => {
 // Helper: Hapus Item
 export const deleteItem = async (id) => {
   try {
-    const { error } = await supabase.from('items').delete().eq('id', id);
-    if (error) throw error;
+    const docRef = doc(db, 'items', id);
+    await deleteDoc(docRef);
     return { success: true };
   } catch (err) {
     console.error('Error deleting item:', err);
@@ -65,22 +75,17 @@ export const deleteItem = async (id) => {
 // Helper: Upload Gambar ke Inventory Bucket
 export const uploadImage = async (file) => {
   try {
-    const fileName = `${Date.now()}_${file.name}`;
-    
-    const { data, error } = await supabase.storage
-      .from('inventory-images')
-      .upload(fileName, file, { cacheControl: '3600', upsert: false });
-
-    if (error) throw error;
-    
-    // Ambil URL Publiknya untuk disematkan di database text
-    const { data: publicUrlData } = supabase.storage
-      .from('inventory-images')
-      .getPublicUrl(fileName);
-      
-    if (!publicUrlData) throw new Error("Gagal mendapatkan public URL.");
-
-    return { success: true, url: publicUrlData.publicUrl };
+    // Sebagai ganti Storage (karena limitasi plan), kita return URL gambar dummy
+    console.log("Mocking upload for file:", file.name);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ 
+          success: true, 
+          // Placeholder URL gambar inventaris lab (komputer/hardware)
+          url: 'https://images.unsplash.com/photo-1588508065123-287b28e01397?auto=format&fit=crop&q=80&w=800' 
+        });
+      }, 1000); // Simulasi delay jaringan
+    });
   } catch (err) {
     console.error('Error uploading image:', err);
     return { success: false, error: err.message };

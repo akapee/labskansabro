@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Lock, Mail, ArrowRight, ArrowLeft } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function Login() {
@@ -15,17 +16,13 @@ export default function Login() {
     setLoading(true);
     setErrorMsg('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setErrorMsg(error.message === 'Invalid login credentials' ? 'Kredensial login tidak cocok.' : error.message);
-      setLoading(false);
-    } else {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       setLoading(false);
       navigate('/dashboard');
+    } catch (error) {
+      setErrorMsg(error.code === 'auth/invalid-credential' ? 'Kredensial login tidak cocok.' : error.message);
+      setLoading(false);
     }
   };
 

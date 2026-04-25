@@ -2,7 +2,8 @@ import React from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Box, LogOut, LayoutDashboard, PackageSearch, Settings, UserCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -10,13 +11,12 @@ export default function DashboardLayout() {
   const { user, profile, role } = useAuth();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     navigate('/login');
   };
 
   const navLinks = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Items Data', path: '/dashboard/items', icon: PackageSearch },
   ];
 
   // Identifikasi role dan label-nya

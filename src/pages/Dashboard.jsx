@@ -197,9 +197,9 @@ export default function Dashboard() {
   };
 
   // Statistik Dinamis
-  const totalBaik = items.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + i.quantity, 0);
-  const totalRingan = items.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + i.quantity, 0);
-  const totalBerat = items.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + i.quantity, 0);
+  const totalBaik = items.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + Number(i.quantity), 0);
+  const totalRingan = items.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + Number(i.quantity), 0);
+  const totalBerat = items.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + Number(i.quantity), 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative pb-12">

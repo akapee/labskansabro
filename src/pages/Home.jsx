@@ -7,7 +7,8 @@ import {
 } from 'recharts';
 
 import { LABS as baseLabs } from '../data/labs';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 export default function Home() {
   const [labsData, setLabsData] = useState(baseLabs.map(lab => ({ ...lab, baik: 0, ringan: 0, berat: 0 })));
@@ -15,16 +16,16 @@ export default function Home() {
   useEffect(() => {
     const fetchGlobalStats = async () => {
       try {
-        const { data, error } = await supabase.from('items').select('lab_id, condition, quantity');
-        if (error) throw error;
-        
+        const querySnapshot = await getDocs(collection(db, 'items'));
+        const data = querySnapshot.docs.map(doc => doc.data());
+
         const freshLabs = baseLabs.map(lab => {
           const labItems = data.filter(item => item.lab_id === lab.id.toLowerCase());
           return {
             ...lab,
-            baik: labItems.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + i.quantity, 0),
-            ringan: labItems.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + i.quantity, 0),
-            berat: labItems.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + i.quantity, 0)
+            baik: labItems.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + Number(i.quantity), 0),
+            ringan: labItems.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + Number(i.quantity), 0),
+            berat: labItems.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + Number(i.quantity), 0)
           };
         });
         setLabsData(freshLabs);
@@ -69,10 +70,10 @@ export default function Home() {
           <div className="bg-primary/10 p-2 rounded-xl">
             <Box className="w-6 h-6 text-primary" />
           </div>
-          <span className="font-extrabold text-xl text-slate-800 tracking-tight">Labskansabro</span>
+          <span className="font-extrabold text-xl text-slate-800 tracking-tight">Inventorium</span>
         </div>
         <Link to="/login" className="group flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95">
-          Login Petugas
+          Login Admin
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </Link>
       </nav>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Package, CheckCircle2, AlertTriangle, XCircle, Search, Calendar, ChevronRight, Loader2, Image as ImageIcon } from 'lucide-react';
 import { LABS } from '../data/labs';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 
 export default function LabDetail() {
   const { id } = useParams();
@@ -16,13 +17,16 @@ export default function LabDetail() {
     const fetchRealItems = async () => {
       if (!lab) return;
       try {
-        const { data, error } = await supabase.from('items')
-          .select('*')
-          .eq('lab_id', lab.id.toLowerCase())
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        setRealItems(data || []);
+        const q = query(
+          collection(db, 'items'),
+          where('lab_id', '==', lab.id.toLowerCase())
+        );
+        const querySnapshot = await getDocs(q);
+        let data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Urutkan data secara lokal (sama seperti dashboard) untuk menghindari error Missing Composite Index
+        data.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        setRealItems(data);
       } catch (err) {
         console.error("Gagal menarik data detail lab:", err);
       } finally {
@@ -43,9 +47,9 @@ export default function LabDetail() {
     );
   }
 
-  const realBaik = realItems.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + i.quantity, 0);
-  const realRingan = realItems.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + i.quantity, 0);
-  const realBerat = realItems.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + i.quantity, 0);
+  const realBaik = realItems.filter(i => i.condition === 'Baik').reduce((sum, i) => sum + Number(i.quantity), 0);
+  const realRingan = realItems.filter(i => i.condition === 'Rusak Ringan').reduce((sum, i) => sum + Number(i.quantity), 0);
+  const realBerat = realItems.filter(i => i.condition === 'Rusak Berat').reduce((sum, i) => sum + Number(i.quantity), 0);
   const total = realBaik + realRingan + realBerat;
 
   return (
